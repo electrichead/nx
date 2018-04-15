@@ -3,61 +3,76 @@ import { createGraphviz, NodeEdgeVariant } from './dep-graph';
 
 describe('dep-graph', () => {
   describe('getNodeProps', () => {
-    const deps = {
-      app1: [],
-      app2: [
-        {
-          projectName: 'lib1',
-          type: DependencyType.es6Import
-        }
-      ],
-      lib1: [],
-      lib2: [
-        {
-          projectName: 'lib1',
-          type: DependencyType.es6Import
-        }
-      ],
-      lib3: []
-    };
-
-    const projects = [
-      {
+    const projectMap = {
+      app1: {
         name: 'app1',
         root: 'apps/app1',
         type: ProjectType.app,
         tags: [],
         files: []
       },
-      {
+      app2: {
         name: 'app2',
         root: 'apps/app2',
         type: ProjectType.app,
         tags: [],
         files: []
       },
-      {
+      lib1: {
         name: 'lib1',
         root: 'libs/lib1',
         type: ProjectType.lib,
         tags: [],
         files: []
       },
-      {
+      lib2: {
         name: 'lib2',
         root: 'libs/lib2',
         type: ProjectType.lib,
         tags: [],
         files: []
       },
-      {
+      lib3: {
         name: 'lib3',
         root: 'libs/lib3',
         type: ProjectType.lib,
         tags: [],
         files: []
       }
-    ];
+    };
+
+    const deps = {
+      app1: {
+        props: projectMap.app1,
+        deps: []
+      },
+      app2: {
+        props: projectMap.app2,
+        deps: [
+          {
+            projectName: 'lib1',
+            type: DependencyType.es6Import
+          }
+        ]
+      },
+      lib1: {
+        props: projectMap.lib1,
+        deps: []
+      },
+      lib2: {
+        props: projectMap.lib2,
+        deps: [
+          {
+            projectName: 'lib1',
+            type: DependencyType.es6Import
+          }
+        ]
+      },
+      lib3: {
+        props: projectMap.lib3,
+        deps: []
+      }
+    };
 
     const graphvizOptions = {
       graph: [],
@@ -90,7 +105,7 @@ describe('dep-graph', () => {
     };
 
     it('should generate the default dot output', () => {
-      const resp = createGraphviz(graphvizOptions, deps, projects, {});
+      const resp = createGraphviz(graphvizOptions, deps, {});
 
       expect(resp).toContain('"app1";');
       expect(resp).toContain('"app2";');
@@ -119,7 +134,7 @@ describe('dep-graph', () => {
         }
       };
 
-      const resp = createGraphviz(modifiedOptions, deps, projects, {
+      const resp = createGraphviz(modifiedOptions, deps, {
         lib1: true
       });
 
@@ -151,7 +166,7 @@ describe('dep-graph', () => {
         }
       };
 
-      const resp = createGraphviz(modifiedOptions, deps, projects, {
+      const resp = createGraphviz(modifiedOptions, deps, {
         lib1: true
       });
 
@@ -165,26 +180,41 @@ describe('dep-graph', () => {
 
     it('should style all variants correctly', () => {
       const newDeps = {
-        app1: [
-          {
-            projectName: 'lib1',
-            type: DependencyType.es6Import
-          }
-        ],
-        app2: [
-          {
-            projectName: 'lib1',
-            type: DependencyType.loadChildren
-          }
-        ],
-        lib1: [],
-        lib2: [
-          {
-            projectName: 'lib1',
-            type: DependencyType.implicit
-          }
-        ],
-        lib3: []
+        app1: {
+          props: projectMap.app1,
+          deps: [
+            {
+              projectName: 'lib1',
+              type: DependencyType.es6Import
+            }
+          ]
+        },
+        app2: {
+          props: projectMap.app2,
+          deps: [
+            {
+              projectName: 'lib1',
+              type: DependencyType.loadChildren
+            }
+          ]
+        },
+        lib1: {
+          props: projectMap.lib1,
+          deps: []
+        },
+        lib2: {
+          props: projectMap.lib2,
+          deps: [
+            {
+              projectName: 'lib1',
+              type: DependencyType.implicit
+            }
+          ]
+        },
+        lib3: {
+          props: projectMap.lib3,
+          deps: []
+        }
       };
 
       const modifiedOptions = {
@@ -237,7 +267,7 @@ describe('dep-graph', () => {
         }
       };
 
-      const resp = createGraphviz(modifiedOptions, newDeps, projects, {
+      const resp = createGraphviz(modifiedOptions, newDeps, {
         app1: true,
         app2: true,
         lib1: true
@@ -261,12 +291,7 @@ describe('dep-graph', () => {
         '"lib2" -> "lib1" [ color = "implicit-highlight" ];'
       );
 
-      const respNoCriticalPath = createGraphviz(
-        modifiedOptions,
-        newDeps,
-        projects,
-        {}
-      );
+      const respNoCriticalPath = createGraphviz(modifiedOptions, newDeps, {});
 
       expect(respNoCriticalPath).toContain(
         '"app1" -> "lib1" [ color = "es6Import-def" ];'

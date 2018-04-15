@@ -375,7 +375,7 @@ describe('Command line', () => {
       1000000
     );
 
-    it(
+    fit(
       'dep-graph should output html to file',
       () => {
         const file = 'dep-graph.html';

@@ -7,7 +7,6 @@ import {
   ProjectNode,
   ProjectType,
   dependencies,
-  Deps,
   Dependency,
   DependencyType
 } from './affected-apps';
@@ -18,6 +17,13 @@ import * as path from 'path';
 import { tmpNameSync } from 'tmp';
 
 const viz = require('viz.js'); // typings are incorrect in viz.js library - need to use `require`
+
+export type ProjectNodes = {
+  [name: string]: {
+    props: ProjectNode;
+    deps: Dependency[];
+  };
+};
 
 export enum NodeEdgeVariant {
   default = 'default',
@@ -32,7 +38,8 @@ export type GraphvizOptions = {
   style?: string;
   fillcolor?: string;
 };
-export type AttrValue = {
+
+export type GraphvizAttribute = {
   attr: string;
   value: boolean | number | string;
 };
@@ -44,12 +51,12 @@ export type GraphvizOptionNodeEdge = {
 };
 
 export type GraphvizConfig = {
-  graph: AttrValue[];
+  graph: GraphvizAttribute[];
   nodes: GraphvizOptionNodeEdge;
   edges: GraphvizOptionNodeEdge;
 };
 
-export type ProjectMap = {
+export type ProjectNodeMap = {
   [name: string]: ProjectNode;
 };
 
@@ -85,7 +92,7 @@ type OutputOptions = {
 };
 
 type JSONOutput = {
-  deps: Deps;
+  nodes: ProjectNodes;
   criticalPath: string[];
 };
 
@@ -198,22 +205,22 @@ function getEdgeProps(
 
 export function createGraphviz(
   config: GraphvizConfig,
-  deps: Deps,
-  projects: ProjectNode[],
+  nodes: ProjectNodes,
   criticalPath: CriticalPathMap
 ) {
-  const projectMap: ProjectMap = mapProjectNodes(projects);
   const g = graphviz.digraph('G');
 
   config.graph.forEach(({ attr, value }) => g.set(attr, value));
 
-  Object.keys(deps)
+  Object.keys(nodes)
     .sort() // sorting helps with testing
     .forEach(key => {
-      const projectNode = projectMap[key];
-      const dependencies = deps[key];
+      const dependencies = nodes[key].deps;
 
-      g.addNode(key, getNodeProps(config.nodes, projectNode, criticalPath));
+      g.addNode(
+        key,
+        getNodeProps(config.nodes, nodes[key].props, criticalPath)
+      );
 
       if (dependencies.length > 0) {
         dependencies.forEach((dep: Dependency, i: number) => {
@@ -221,7 +228,7 @@ export function createGraphviz(
             dep.projectName,
             getNodeProps(
               config.nodes,
-              projectMap[dep.projectName],
+              nodes[dep.projectName].props,
               criticalPath
             )
           ); // child node
@@ -270,26 +277,31 @@ function generateGraphJson(criticalPath?: string[]): JSONOutput {
   const config = readCliConfig();
   const npmScope = config.project.npmScope;
   const projects: ProjectNode[] = getProjectNodes(config);
+  const projectMap: ProjectNodeMap = mapProjectNodes(projects);
 
   // fetch all apps and libs
   const deps = dependencies(npmScope, projects, f =>
     readFileSync(`${appRoot.path}/${f}`, 'utf-8')
   );
 
+  const nodes = Object.keys(deps).reduce(
+    (m, nodeName) => ({
+      ...m,
+      [nodeName]: { props: projectMap[nodeName], deps: deps[nodeName] }
+    }),
+    {}
+  );
+
   return {
-    deps,
+    nodes,
     criticalPath
   };
 }
 
 function getDot(json: JSONOutput) {
-  const config = readCliConfig();
-  const projects: ProjectNode[] = getProjectNodes(config);
-
   return createGraphviz(
     graphvizConfig,
-    json.deps,
-    projects,
+    json.nodes,
     json.criticalPath.reduce((m, proj) => ({ ...m, [proj]: true }), {})
   );
 }
